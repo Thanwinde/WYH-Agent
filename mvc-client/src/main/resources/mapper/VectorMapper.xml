@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.mvc_client.Mapper.VectorMapper">
+    <insert id="addFileVector">
+        INSERT INTO vector_list (file_name , chat_id , type , hash)
+        VALUES (#{fileName} , #{chatId} , #{type} , #{hash});
+    </insert>
+
+    <select id="getVectorsByFileName" parameterType="string" resultType="com.mvc_client.domain.VectorDto">
+        SELECT *
+        FROM vector_list
+        WHERE file_name = #{fileName};
+    </select>
+    <select id="getFileNamesByChatId" parameterType="string" resultType="java.lang.String">
+        SELECT DISTINCT file_name
+        FROM vector_list
+        WHERE chat_id = #{chatId} OR chat_id = 0;
+    </select>
+    <select id="getVectorsByFileHash" parameterType="string" resultType="com.mvc_client.domain.VectorDto">
+        SELECT *
+        FROM vector_list
+        WHERE hash = #{hash};
+    </select>
+    <select id="getFileHashesByChatId" parameterType="string" resultType="java.lang.String">
+        SELECT hash
+        FROM vector_list
+        WHERE chat_id = #{chatId} OR chat_id = '0';
+    </select>
+
+</mapper>

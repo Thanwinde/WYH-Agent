@@ -1,0 +1,94 @@
+spring:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 20MB
+      file-size-threshold: 2MB
+  application:
+    name: Spring-MVC-Client
+  ai:
+    vectorstore:
+      redis:
+        initialize-schema: true
+        index-name: default-index.html
+        prefix: 'vectorstore:'
+    openai:
+      base-url: https://api.deepseek.com
+      api-key: sk-114514
+      embedding:
+        base-url: https://dashscope.aliyuncs.com/compatible-mode
+        api-key: sk-114514
+        options:
+          model: text-embedding-v4
+      chat:
+        base-url: https://api.deepseek.com
+        api-key: sk-114514
+        options:
+          max-completion-tokens: 5120
+      chat1:
+        base-url: https://dashscope.aliyuncs.com/compatible-mode
+        api-key: sk-114514
+        options:
+          model: qwen-omni-turbo
+          max-completion-tokens: 5120
+
+
+    chat:
+      memory:
+        repository:
+          jdbc:
+            platform: mysql
+            schema: classpath:org/springframework/ai/chat/memory/repository/jdbc/schema-@@platform@@.sql
+            initialize-schema: always
+    mcp:
+      client:
+        enabled: true
+        name: my-mcp-client
+        version: 1.0.0
+        request-timeout: 30s
+        type: SYNC
+        sse:
+          connections:
+            server1:
+              url: http://localhost:8081
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  #    username:
+  #
+  #        stdio:
+#          root-change-notification: false
+#          connections:
+#            server1:
+#              command: /path/to/server
+#              args:
+#                - --port=8081
+#                - --mode=production
+#              env:
+#                API_KEY: sk-4d9c090ad4b24d10bf8a3159ed31b1d5
+#                DEBUG: "true"
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/spring-mvc?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+server:
+  port: 8080
+
+logging:
+  level:
+    org.springframework.ai.mcp: DEBUG
+    # 如果你用的是 webflux 版本的 mcp-client，reactor-netty 也可以开 DEBUG
+    reactor.netty: INFO
+
+mybatis:
+  mapper-locations: classpath*:mapper/**/*.xml
+
+
+
+
+
+

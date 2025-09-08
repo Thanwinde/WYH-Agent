@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WYH Agent</title>
+    <style>
+        :root {
+            --border-color: #e0e0e0;
+            --background-color: #f9f9f9;
+            --sidebar-bg: #ffffff;
+            --chat-bg: #ffffff;
+            --user-msg-bg: #dcf8c6;
+            --ai-msg-bg: #f1f0f0;
+            --button-bg: #007bff;
+            --button-hover-bg: #0056b3;
+            --text-color: #333;
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        * { box-sizing: border-box; }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: var(--font-family); background-color: var(--background-color); color: var(--text-color); overflow: hidden; }
+        .container { display: flex; height: 100vh; }
+        /* Sidebar */
+        .sidebar { width: 260px; background-color: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 15px; }
+        .sidebar-header { padding-bottom: 15px; border-bottom: 1px solid var(--border-color); }
+        .sidebar-header h2 { margin: 0 0 15px 0; font-size: 1.2em; }
+        .model-selector label { font-size: 0.9em; font-weight: bold; margin-bottom: 5px; display: block; }
+        #model-select { width: 100%; padding: 8px; border-radius: 5px; border: 1px solid var(--border-color); }
+        .new-chat-btn { width: 100%; padding: 10px; margin-top: 15px; background-color: var(--button-bg); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1em; transition: background-color 0.3s; }
+        .new-chat-btn:hover { background-color: var(--button-hover-bg); }
+        .history { flex-grow: 1; overflow-y: auto; margin-top: 15px; }
+        .history h3 { margin: 10px 0; font-size: 1em; color: #555; }
+        #history-list { list-style: none; padding: 0; margin: 0; }
+        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 10px; border-radius: 5px; cursor: pointer; margin-bottom: 5px; word-break: break-all; }
+        .history-item:hover { background-color: #f0f0f0; }
+        .history-item.active { background-color: #e0e0e0; }
+        .history-item-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .delete-history-btn { background: none; border: none; cursor: pointer; color: #999; font-size: 1.2em; padding: 5px; flex-shrink: 0; }
+        .delete-history-btn:hover { color: #f44336; }
+        /* Chat Area */
+        .chat-area { flex-grow: 1; display: flex; flex-direction: column; background-color: var(--chat-bg); }
+        .chat-messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
+        .message { max-width: 72%; padding: 10px 14px; border-radius: 14px; margin-bottom: 14px; line-height: 1.55; word-wrap: break-word; }
+        .user-message { background-color: var(--user-msg-bg); align-self: flex-end; border-bottom-right-radius: 3px; }
+        .ai-message { background-color: var(--ai-msg-bg); align-self: flex-start; border-bottom-left-radius: 3px; }
+        .ai-message.streaming::after { content: '▋'; display: inline-block; animation: blink 1s step-end infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+        .chat-input { display: flex; align-items: center; gap: 10px; padding: 15px; border-top: 1px solid var(--border-color); flex-wrap: wrap; }
+        #prompt-input { flex: 1 1 auto; min-width: 240px; padding: 10px; border: 1px solid var(--border-color); border-radius: 5px; resize: none; font-size: 1em; }
+        .chat-input button, .chat-input label { padding: 10px 16px; border: none; background-color: var(--button-bg); color: white; border-radius: 6px; cursor: pointer; transition: background-color 0.2s; font-size: 1em; white-space: nowrap; }
+        .chat-input button:hover, .chat-input label:hover { background-color: var(--button-hover-bg); }
+        .controls-row { width: 100%; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .input-row { width: 100%; display: flex; align-items: center; gap: 10px; }
+        /* Attachments (pending area) */
+        .attachments-wrap { display: none; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .attachment-pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px dashed var(--border-color); border-radius: 20px; font-size: 0.9em; background: #fff; color: #555; }
+        .attachment-pill .remove-btn { background: none; border: none; cursor: pointer; font-size: 1.1em; line-height: 1; color: #999; }
+        .attachment-pill .remove-btn:hover { color: #f44336; }
+        .attachments-actions { display: none; gap: 8px; }
+        .muted { color: #777; font-size: 0.9em; }
+        /* Message attachment previews */
+        .msg-attachments { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+        .msg-attachments img { max-width: 200px; max-height: 140px; border-radius: 10px; border: 1px solid var(--border-color); display: block; }
+        .msg-attachments audio, .msg-attachments video { max-width: 280px; border-radius: 10px; }
+        .file-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; background: #fff; border: 1px solid var(--border-color); border-radius: 18px; font-size: 0.9em; }
+        .file-chip .ext { font-weight: bold; opacity: 0.7; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2>WYH Agent</h2>
+            <div class="model-selector">
+                <label for="model-select">选择模型:</label>
+                <select id="model-select">
+                    <option value="deepseek-chat">Deepseek非思考</option>
+                    <option value="deepseek-reasoner">Deepseek思考</option>
+                    <option value="qwen-omni-turbo">qwen-omni-turbo</option>
+                </select>
+            </div>
+            <button class="new-chat-btn" id="new-chat">开启新对话</button>
+        </div>
+        <div class="history">
+            <h3>历史记录</h3>
+            <ul id="history-list"></ul>
+        </div>
+    </div>
+
+    <div class="chat-area">
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input">
+            <div class="controls-row">
+                <!-- 双模式：并存的两个按钮 -->
+                <input type="file" id="file-input-upload" multiple style="display:none" />
+                <label for="file-input-upload" id="file-upload-btn">上传文件（立即入库）</label>
+
+                <input type="file" id="file-input-attach" multiple style="display:none" />
+                <label for="file-input-attach" id="file-attach-btn">附加到下一条（随请求发送）</label>
+
+                <div id="attachments" class="attachments-wrap"></div>
+                <div id="attachments-actions" class="attachments-actions">
+                    <span class="muted" id="attachments-count"></span>
+                    <button id="clear-attachments" type="button">清空附加</button>
+                </div>
+            </div>
+            <div class="input-row">
+                <textarea id="prompt-input" placeholder="输入你的问题..." rows="1"></textarea>
+                <button id="send-btn">发送</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const USER_ID = 'user_001';
+
+        // DOM refs
+        const modelSelect = document.getElementById('model-select');
+        const newChatBtn = document.getElementById('new-chat');
+        const historyList = document.getElementById('history-list');
+        const chatMessages = document.getElementById('chat-messages');
+        const promptInput = document.getElementById('prompt-input');
+        const sendBtn = document.getElementById('send-btn');
+        const fileInputUpload = document.getElementById('file-input-upload');
+        const fileInputAttach = document.getElementById('file-input-attach');
+        const attachmentsWrap = document.getElementById('attachments');
+        const attachmentsActions = document.getElementById('attachments-actions');
+        const attachmentsCount = document.getElementById('attachments-count');
+        const clearAttachmentsBtn = document.getElementById('clear-attachments');
+
+        // State
+        let currentChatId = null;
+        let chatHistoryTitles = {};
+        let pendingFiles = []; // 将随下一条问题一起发送
+
+        // Init
+        initialize();
+
+        async function initialize() {
+            loadTitlesFromStorage();
+            await fetchAllHistoryIds();
+            setupEventListeners();
+            renderAttachments();
+        }
+
+        function setupEventListeners() {
+            newChatBtn.addEventListener('click', startNewChat);
+            sendBtn.addEventListener('click', handleSendMessage);
+            promptInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
+            });
+            // 双模式：分别监听两个输入
+            fileInputUpload.addEventListener('change', handleFileUploadChoose);
+            fileInputAttach.addEventListener('change', handleFileAttachChoose);
+            historyList.addEventListener('click', handleHistoryClick);
+            clearAttachmentsBtn.addEventListener('click', () => { pendingFiles = []; renderAttachments(); });
+            attachmentsWrap.addEventListener('click', (e) => {
+                const btn = e.target.closest('.remove-btn');
+                if (!btn) return;
+                const idx = parseInt(btn.getAttribute('data-index'), 10);
+                if (!Number.isNaN(idx)) { pendingFiles.splice(idx, 1); renderAttachments(); }
+            });
+        }
+
+        // ===== 上传文件（立即入库） =====
+        async function handleFileUploadChoose() {
+            const files = fileInputUpload.files;
+            if (!files || files.length === 0) return;
+            if (!currentChatId) startNewChat();
+
+            const list = Array.from(files);
+            for (const file of list) {
+                displayMessage('user', `上传文件：${escapeHtml(file.name)}`);
+                if (chatHistoryTitles[currentChatId] === 'New Chat') {
+                    chatHistoryTitles[currentChatId] = `上传：${file.name}`;
+                    saveTitlesToStorage();
+                    renderHistoryList();
+                }
+                const uploadingEl = displayMessage('ai', `正在上传「${escapeHtml(file.name)}」…`, true);
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const resp = await fetch(`/ai/upload/${encodeURIComponent(currentChatId)}`, {
+                        method: 'POST', body: formData, headers: { 'Accept': 'application/json' }
+                    });
+                    let data = null; try { data = await resp.json(); } catch(_){}
+                    uploadingEl.classList.remove('streaming');
+                    if (!resp.ok) throw new Error((data && (data.msg || data.message)) || `HTTP ${resp.status}`);
+                    const ok = data && (data.ok === 1 || data.success === true);
+                    uploadingEl.textContent = ok ? `上传成功：${file.name}` : ((data && data.msg) ? `上传失败：${data.msg}` : '上传失败');
+                } catch (err) {
+                    uploadingEl.classList.remove('streaming');
+                    uploadingEl.textContent = `上传失败：${err.message || '网络错误'}`;
+                }
+            }
+            fileInputUpload.value = '';
+        }
+
+        // ===== 附加到下一条（随请求发送） =====
+        function handleFileAttachChoose() {
+            const files = fileInputAttach.files;
+            if (!files || files.length === 0) return;
+            if (!currentChatId) startNewChat();
+            pendingFiles.push(...Array.from(files));
+            renderAttachments();
+            const names = Array.from(files).map(f => f.name).join('、');
+            displayMessage('ai', `已附加 ${files.length} 个文件：${escapeHtml(names)}（将随下一条问题发送）`);
+            fileInputAttach.value = '';
+        }
+
+        function renderAttachments() {
+            attachmentsWrap.innerHTML = '';
+            if (pendingFiles.length > 0) {
+                attachmentsWrap.style.display = 'flex';
+                attachmentsActions.style.display = 'flex';
+                attachmentsCount.textContent = `共 ${pendingFiles.length} 个附件`;
+                pendingFiles.forEach((f, i) => {
+                    const pill = document.createElement('div');
+                    pill.className = 'attachment-pill';
+                    pill.innerHTML = `<span title="${escapeHtml(f.name)}">${escapeHtml(truncate(f.name, 24))}</span>` +
+                        `<button type="button" class="remove-btn" data-index="${i}" title="移除">×</button>`;
+                    attachmentsWrap.appendChild(pill);
+                });
+            } else {
+                attachmentsWrap.style.display = 'none';
+                attachmentsActions.style.display = 'none';
+                attachmentsCount.textContent = '';
+            }
+        }
+
+        function truncate(str, len) { return str.length > len ? str.slice(0, len - 1) + '…' : str; }
+        function escapeHtml(s='') { return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
+
+        // ===== 发送消息 =====
+        async function handleSendMessage() {
+            const prompt = promptInput.value.trim();
+            if (!prompt) return;
+
+            const model = modelSelect.value;
+            const filesToSend = (model === 'qwen-omni-turbo') ? [...pendingFiles] : [];
+
+            // 在用户气泡中展示图片/音频等预览（仅当实际会随请求发送时）
+            if (filesToSend.length > 0) {
+                const html = buildUserMsgWithPreviews(escapeHtml(prompt), filesToSend);
+                displayHtmlMessage('user', html);
+            } else {
+                displayMessage('user', escapeHtml(prompt));
+            }
+            promptInput.value = '';
+
+            if (chatHistoryTitles[currentChatId] === 'New Chat') {
+                const newTitle = prompt.substring(0, 30) + (prompt.length > 30 ? '...' : '');
+                chatHistoryTitles[currentChatId] = newTitle;
+                saveTitlesToStorage();
+                renderHistoryList();
+            }
+
+            const aiMessageElement = displayMessage('ai', '', true);
+            try {
+                let response;
+                if (model === 'qwen-omni-turbo') {
+                    // 真正随请求发送文件
+                    const formData = new FormData();
+                    formData.append('chatId', currentChatId);
+                    formData.append('prompt', prompt);
+                    for (const f of filesToSend) formData.append('files', f, f.name);
+                    response = await fetch(`/ai/${model}/chat`, { method: 'POST', body: formData });
+                } else {
+                    if (pendingFiles.length > 0) {
+                        // 其他模型暂不支持随请求发送，给出提示但不清空
+                        displayMessage('ai', '提示：当前模型不支持“随请求发送”的附件，这些附加文件将被忽略。可切换到 qwen-omni-turbo 或先点“上传文件（立即入库）”。');
+                    }
+                    const url = `/ai/${model}/chat?chatId=${encodeURIComponent(currentChatId)}&prompt=${encodeURIComponent(prompt)}`;
+                    response = await fetch(url);
+                }
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let fullResponse = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    fullResponse += chunk;
+                    aiMessageElement.innerHTML = escapeBr(fullResponse);
+                }
+
+                if (model === 'qwen-omni-turbo') {
+                    pendingFiles = []; // 成功后清空已附加
+                    renderAttachments();
+                }
+            } catch (err) {
+                console.error('Fetch stream failed:', err);
+                aiMessageElement.textContent = '抱歉，发生错误，请稍后再试。';
+            } finally {
+                aiMessageElement.classList.remove('streaming');
+            }
+        }
+
+        function escapeBr(s='') { return s.replace(/\n/g, '<br>'); }
+
+        function buildUserMsgWithPreviews(textHtml, files) {
+            let html = `<div>${textHtml}</div>`;
+            html += '<div class="msg-attachments">';
+            for (const f of files) {
+                const type = (f.type || '').toLowerCase();
+                try {
+                    if (type.startsWith('image/')) {
+                        const url = URL.createObjectURL(f);
+                        html += `<img src="${url}" alt="${escapeHtml(f.name)}" />`;
+                    } else if (type.startsWith('audio/')) {
+                        const url = URL.createObjectURL(f);
+                        html += `<audio controls src="${url}"></audio>`;
+                    } else if (type.startsWith('video/')) {
+                        const url = URL.createObjectURL(f);
+                        html += `<video controls src="${url}" style="max-width:280px; border-radius:10px;"></video>`;
+                    } else {
+                        html += `<span class="file-chip" title="${escapeHtml(f.name)}"><span class="ext">${escapeHtml(getExt(f.name))}</span>${escapeHtml(truncate(f.name, 18))}</span>`;
+                    }
+                } catch (_) {
+                    html += `<span class="file-chip" title="${escapeHtml(f.name)}">${escapeHtml(truncate(f.name, 18))}</span>`;
+                }
+            }
+            html += '</div>';
+            return html;
+        }
+
+        function getExt(name='') { const m = name.match(/\.([^.]+)$/); return m ? m[1].toUpperCase() : 'FILE'; }
+
+        // ===== 历史相关 =====
+        async function fetchAllHistoryIds() {
+            try {
+                const response = await fetch(`/ai/history/${USER_ID}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const chatIds = await response.json();
+                const newHistoryTitles = {};
+                chatIds.forEach(id => { newHistoryTitles[id] = chatHistoryTitles[id] || `Chat ${id.slice(-4)}`; });
+                chatHistoryTitles = newHistoryTitles;
+                saveTitlesToStorage();
+                if (chatIds.length > 0) switchChat(chatIds[0]); else startNewChat();
+            } catch (error) {
+                console.error('Failed to fetch all history IDs:', error);
+                displayMessage('ai', `无法从服务器加载历史列表: ${error.message}`);
+                if (Object.keys(chatHistoryTitles).length === 0) startNewChat();
+                else switchChat(Object.keys(chatHistoryTitles)[0]);
+            }
+        }
+
+        async function fetchHistory(chatId) {
+            if (chatHistoryTitles[chatId] === 'New Chat') { displayMessage('ai', '你好，有什么可以帮你的吗？'); return; }
+            try {
+                const response = await fetch(`/ai/history/${USER_ID}/${chatId}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const messages = await response.json();
+                chatMessages.innerHTML = '';
+                messages.forEach(msg => {
+                    const sender = msg.type === 'USER' ? 'user' : 'ai';
+                    displayMessage(sender, msg.content);
+                });
+            } catch (error) {
+                console.error('Failed to fetch history:', error);
+                displayMessage('ai', `无法加载历史记录: ${error.message}`);
+            }
+        }
+
+        async function cleanHistory(chatId) {
+            try {
+                const response = await fetch(`/ai/history/${USER_ID}/clean?chatId=${chatId}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                delete chatHistoryTitles[chatId];
+                saveTitlesToStorage();
+                if (currentChatId === chatId) {
+                    const remainingIds = Object.keys(chatHistoryTitles);
+                    if (remainingIds.length > 0) switchChat(remainingIds[0]); else startNewChat();
+                } else { renderHistoryList(); }
+            } catch (error) {
+                console.error('Failed to clean history:', error);
+                alert('清除历史记录失败。');
+            }
+        }
+
+        function handleHistoryClick(e) {
+            const item = e.target.closest('.history-item');
+            if (!item) return;
+            if (e.target.classList.contains('delete-history-btn')) {
+                e.stopPropagation();
+                const chatIdToDelete = item.dataset.chatId;
+                if (confirm(`确定要删除 "${chatHistoryTitles[chatIdToDelete]}" 吗?`)) { cleanHistory(chatIdToDelete); }
+            } else { switchChat(item.dataset.chatId); }
+        }
+
+        function startNewChat() {
+            const newChatId = `${Date.now()}`;
+            const newHistory = { [newChatId]: 'New Chat' };
+            Object.keys(chatHistoryTitles).forEach(id => { newHistory[id] = chatHistoryTitles[id]; });
+            chatHistoryTitles = newHistory;
+            pendingFiles = []; // 新对话清空附加
+            renderAttachments();
+            saveTitlesToStorage();
+            switchChat(newChatId);
+        }
+
+        function switchChat(chatId) {
+            if (currentChatId === chatId) return;
+            currentChatId = chatId;
+            chatMessages.innerHTML = '';
+            renderHistoryList();
+            fetchHistory(chatId);
+        }
+
+        // ===== UI helpers =====
+        function displayMessage(sender, text, isStreaming = false) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', `${sender}-message`);
+            messageElement.innerHTML = text.replace(/\n/g, '<br>');
+            if (isStreaming) messageElement.classList.add('streaming');
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return messageElement;
+        }
+
+        function displayHtmlMessage(sender, html) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', `${sender}-message`);
+            messageElement.innerHTML = html;
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return messageElement;
+        }
+
+        function renderHistoryList() {
+            historyList.innerHTML = '';
+            const ids = Object.keys(chatHistoryTitles);
+            if (ids.length === 0) return;
+            ids.forEach(chatId => {
+                const item = document.createElement('li');
+                item.classList.add('history-item');
+                item.dataset.chatId = chatId;
+                if (chatId === currentChatId) item.classList.add('active');
+                const titleSpan = document.createElement('span');
+                titleSpan.className = 'history-item-title';
+                titleSpan.textContent = chatHistoryTitles[chatId];
+                titleSpan.title = chatHistoryTitles[chatId];
+                const deleteBtn = document.createElement('button');
+                deleteBtn.classList.add('delete-history-btn');
+                deleteBtn.innerHTML = '&times;';
+                deleteBtn.title = '删除记录';
+                item.appendChild(titleSpan);
+                item.appendChild(deleteBtn);
+                historyList.appendChild(item);
+            });
+        }
+
+        function saveTitlesToStorage() { localStorage.setItem(`ai_agent_titles_${USER_ID}`, JSON.stringify(chatHistoryTitles)); }
+        function loadTitlesFromStorage() { const stored = localStorage.getItem(`ai_agent_titles_${USER_ID}`); if (stored) chatHistoryTitles = JSON.parse(stored); }
+    });
+</script>
+</body>
+</html>

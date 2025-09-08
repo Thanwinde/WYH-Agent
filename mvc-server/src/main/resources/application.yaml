@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: MVC-Server
+  ai:
+    mcp:
+      server:
+        enabled: true
+        name: my-mcp-server
+        version: 1.0.0
+        type: SYNC
+        # base-url: /api/v1
+        sse-endpoint: /sse
+        sse-message-endpoint: /mcp/message
+        capabilities:
+          tool: true
+          resource: true
+          prompt: true
+          completion: true
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/spring-mvc?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+server:
+  port: 8081
+
+mybatis:
+  mapper-locations: classpath*:mapper/**/*.xml
+
+
+
