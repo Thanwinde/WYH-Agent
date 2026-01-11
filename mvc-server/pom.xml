@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>com.mvc-demo</groupId>
-        <artifactId>mvc-demo</artifactId>
+        <artifactId>wyh-chat</artifactId>
         <version>1.0</version>
     </parent>
     <artifactId>mvc-server</artifactId>

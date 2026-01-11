@@ -14,26 +14,16 @@ spring:
         index-name: default-index.html
         prefix: 'vectorstore:'
     openai:
-      base-url: https://api.deepseek.com
-      api-key: sk-114514
       embedding:
         base-url: https://dashscope.aliyuncs.com/compatible-mode
         api-key: sk-114514
         options:
           model: text-embedding-v4
       chat:
-        base-url: https://api.deepseek.com
-        api-key: sk-114514
-        options:
-          max-completion-tokens: 5120
-      chat1:
         base-url: https://dashscope.aliyuncs.com/compatible-mode
         api-key: sk-114514
         options:
-          model: qwen-omni-turbo
           max-completion-tokens: 5120
-
-
     chat:
       memory:
         repository:

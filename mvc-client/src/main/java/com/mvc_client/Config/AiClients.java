@@ -35,12 +35,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AiClients {
 
-
-
-
     private final Advisor retrievalAugmentationAdvisor;
 
-        @Bean("deepseek-chat")
+        @Bean("qwen")
         ChatClient deepseek_chat(ChatClient.Builder chatBuilder,
                                List<McpSyncClient> mcpClients ,
                                @Qualifier("JDBCChatMemory") ChatMemory JDBCChatMemory) {
@@ -49,7 +46,7 @@ public class AiClients {
                     .defaultToolCallbacks(mcpTools)
                     .defaultOptions(
                             OpenAiChatOptions.builder()
-                                    .model("deepseek-chat")
+                                    .model("qwen")
                                     .temperature(0.7)
                                     .maxTokens(5120)
                                     .build()
@@ -61,25 +58,5 @@ public class AiClients {
                     .build();
         }
 
-    @Bean("deepseek-reasoner")
-    ChatClient deepseek_reasoner(ChatClient.Builder chatBuilder,
-                             List<McpSyncClient> mcpClients ,
-                             @Qualifier("JDBCChatMemory") ChatMemory JDBCChatMemory) {
-        ToolCallbackProvider mcpTools = new SyncMcpToolCallbackProvider(mcpClients);
-        return chatBuilder
-                .defaultToolCallbacks(mcpTools)
-                .defaultOptions(
-                        OpenAiChatOptions.builder()
-                                .model("deepseek-chat")
-                                .temperature(0.7)
-                                .maxTokens(5120)
-                                .build()
-                )
-                .defaultSystem(DefaultSystem.FILEHELPER.getText())
-                .defaultAdvisors(MessageChatMemoryAdvisor.builder(JDBCChatMemory).build(),
-                        retrievalAugmentationAdvisor
-                )
-                .build();
-    }
 
 }

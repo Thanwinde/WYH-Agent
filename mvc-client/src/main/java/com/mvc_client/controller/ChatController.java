@@ -34,17 +34,9 @@ import static org.springframework.ai.chat.client.advisor.vectorstore.QuestionAns
 @RequiredArgsConstructor
 public class ChatController {
 
-    @Qualifier(value = "deepseek-chat")
+    @Qualifier(value = "qwen")
     @Autowired
-    private ChatClient deekseek_chat;
-
-    @Qualifier(value = "deepseek-reasoner")
-    @Autowired
-    private ChatClient deekseek_reasoner;
-
-    @Qualifier(value = "qwen-omni-turbo")
-    @Autowired
-    private ChatClient qwen_omni_turbo;
+    private ChatClient chatClient;
 
     private final Readers readers;
 
@@ -57,50 +49,20 @@ public class ChatController {
     @RequestMapping(value = "/{model}/chat", produces = "text/html;charset=utf-8")
     public Flux<String> talk(String chatId, @PathVariable String model, String prompt ,
      @RequestParam(value = "files", required = false) List<MultipartFile> files) {
-        // 使用 Flux.defer() 将流的创建逻辑包裹起来
 
-        List<String> fileHashesByChatId = vectorMapper.getFileHashesByChatId(chatId);
-        String filterExpression = fileHashesByChatId.isEmpty()
-                ? "hash IN ['Never Match']"
-                : ("hash IN [" + fileHashesByChatId.stream()
-                .map(hash -> "'" + hash + "'")
-                .collect(Collectors.joining(", ")) + "]");
-
-        System.out.println("filterExpression = " + filterExpression);
+//        String filterExpression = fileHashesByChatId.isEmpty()
+//                ? "hash IN ['Never Match']"
+//                : ("hash IN [" + fileHashesByChatId.stream()
+//                .map(hash -> "'" + hash + "'")
+//                .collect(Collectors.joining(", ")) + "]");
+//
+//        System.out.println("filterExpression = " + filterExpression);
             return Flux.defer(() -> {
-                if (model.equals("deepseek-chat")) {
-                    return deekseek_chat.prompt()
+                if (model.equals("qwen")) {
+                    return chatClient.prompt()
                             .user(prompt)
                             .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
-                            .advisors(a -> a.param(VectorStoreDocumentRetriever.FILTER_EXPRESSION, filterExpression))
-                            .stream()
-                            .content();
-                } else if (model.equals("deepseek-reasoner")) {
-                    return deekseek_reasoner.prompt()
-                            .user(prompt)
-                            .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
-                            .advisors(a -> a.param(VectorStoreDocumentRetriever.FILTER_EXPRESSION, filterExpression))
-                            .stream()
-                            .content();
-                } else if (model.equals("qwen-omni-turbo")) {
-
-                    List<Media> medias;
-                    if(files!=null) {
-                        medias = files.stream()
-                                .map(file -> new Media(
-                                                MimeType.valueOf(Objects.requireNonNull(file.getContentType())),
-                                                file.getResource()
-                                        )
-                                )
-                                .toList();
-                    } else {
-                        medias = new ArrayList<>();
-                    }
-
-                    return qwen_omni_turbo.prompt()
-                            .user(p -> p.text(prompt).media(medias.toArray(Media[]::new)))
-                            .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, chatId))
-                            .advisors(a -> a.param(VectorStoreDocumentRetriever.FILTER_EXPRESSION, filterExpression))
+                            .advisors(a -> a.param(VectorStoreDocumentRetriever.FILTER_EXPRESSION , ""))
                             .stream()
                             .content();
                 }
