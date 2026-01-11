@@ -3,7 +3,6 @@ package com.mvc_client.RAG;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
-import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
@@ -14,9 +13,6 @@ import org.springframework.ai.rag.generation.augmentation.ContextualQueryAugment
 import org.springframework.ai.rag.preretrieval.query.expansion.MultiQueryExpander;
 import org.springframework.ai.rag.preretrieval.query.transformation.RewriteQueryTransformer;
 import org.springframework.ai.rag.preretrieval.query.transformation.TranslationQueryTransformer;
-import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
-import org.springframework.ai.template.st.StTemplateRenderer;
-import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 @Configuration
@@ -33,7 +29,7 @@ public class AdvisorConfig {
                 .build();
     }
 
-    private final VectorStore redisVectorStore;
+    private final HybridRrfDocumentRetriever hybridRrfDocumentRetriever;
 
     @Bean
     Advisor retrievalAugmentationAdvisor(ChatClient.Builder chatBuilder) {
@@ -104,13 +100,7 @@ public class AdvisorConfig {
                                 .promptTemplate(expandTpl)
                                 .build()
                 )
-                .documentRetriever(
-                        VectorStoreDocumentRetriever.builder()
-                                .vectorStore(redisVectorStore)
-                                .similarityThreshold(0.2)
-                                .topK(5)
-                                .build()
-                )
+                .documentRetriever(hybridRrfDocumentRetriever)
 
                 .queryAugmenter(ContextualQueryAugmenter.builder()
                         .promptTemplate(ctxTpl)
