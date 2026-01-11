@@ -46,6 +46,20 @@ spring:
     redis:
       host: localhost
       port: 6379
+rag:
+  redis:
+    index-name: vector-index
+  retrieval:
+    bm25-top-k: 20
+    vector-top-k: 20
+    fused-top-k: 20
+    rrf-k: 60
+    prf-docs: 3
+    second-top-k: 12
+    rerank-top-n: 8
+  rerank:
+    base-url: https://dashscope.aliyuncs.com/compatible-mode
+    model: qwen3-rerank
   #    username:
   #
   #        stdio:
@@ -76,7 +90,6 @@ logging:
 
 mybatis:
   mapper-locations: classpath*:mapper/**/*.xml
-
 
 
 
